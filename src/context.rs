@@ -2,14 +2,17 @@ use anyhow::Context;
 use tts::Tts;
 use winit::{
     dpi::LogicalSize,
+    event::Event,
     event_loop::EventLoop,
     window::{Window, WindowBuilder},
 };
+use winit_input_helper::WinitInputHelper;
 
 const WINDOW_TITLE: &str = concat!(env!("CARGO_PKG_NAME"), " v", env!("CARGO_PKG_VERSION"));
 
 pub struct GameContext {
     win: Window,
+    input: WinitInputHelper,
     speaker: Tts,
 }
 
@@ -23,7 +26,13 @@ impl GameContext {
             .context("Could not create window")?;
         Ok(Self {
             win,
+            input: WinitInputHelper::new(),
             speaker: Tts::default().context("Could not initialize TTS engine")?,
         })
+    }
+
+    #[inline]
+    pub fn feed_event(&mut self, e: &Event<()>) -> bool {
+        self.input.update(e)
     }
 }
