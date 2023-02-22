@@ -12,7 +12,9 @@ fn main() -> anyhow::Result<()> {
     event_loop.run(move |event, _, _| {
         if ctx.feed_event(&event) {
             // Todo: Better error handling
-            states.on_update(&mut ctx).unwrap();
+            if !states.on_update(&mut ctx).unwrap() {
+                std::process::exit(0);
+            }
         }
     });
 }

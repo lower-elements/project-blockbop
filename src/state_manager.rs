@@ -68,7 +68,7 @@ impl<Ctx> StateManager<Ctx> {
     }
 
     /// Update the [`State`]s in the state stack, modifying the stack if necessary.
-    pub fn on_update(&mut self, ctx: &mut Ctx) -> anyhow::Result<()> {
+    pub fn on_update(&mut self, ctx: &mut Ctx) -> anyhow::Result<bool> {
         // A single transition, which will be returned by the top state
         let mut pending_transition = Transition::None;
         // Depth of the current state (I.E. how many states are above it)
@@ -79,7 +79,8 @@ impl<Ctx> StateManager<Ctx> {
             depth += 1;
         }
 
-        self.apply_pending_transition(pending_transition, ctx)
+        self.apply_pending_transition(pending_transition, ctx)?;
+        Ok(!self.states.is_empty())
     }
 
     /// Internal function to perform a [`Transition`] on a `StateManager`.
