@@ -1,3 +1,12 @@
+/// A game state
+pub trait State<Ctx> {
+    // Called once per frame to update the `State`. `ctx` is the context passed to the
+    // [`StateManager`], `depth` is the number of states above this one in the stack.
+    fn on_update(&mut self, _ctx: &mut Ctx, _depth: usize) -> anyhow::Result<Transition<Ctx>> {
+        Ok(Transition::None)
+    }
+}
+
 /// A state transition, returned by [`State::on_update`]
 pub enum Transition<Ctx> {
     // No change
@@ -9,13 +18,6 @@ pub enum Transition<Ctx> {
     /// The specified number of states are popped from the state stack, then the specified state is
     /// pushed onto the state stack
     Replace(usize, Box<dyn State<Ctx>>),
-}
-
-/// A game state
-pub trait State<Ctx> {
-    fn on_update(&mut self, _ctx: &mut Ctx) -> anyhow::Result<Transition<Ctx>> {
-        Ok(Transition::None)
-    }
 }
 
 /// Manages a stack of [`State`] trait objects, dispatching updates to them
@@ -54,9 +56,12 @@ impl<Ctx> StateManager<Ctx> {
     pub fn on_update(&mut self, ctx: &mut Ctx) -> anyhow::Result<()> {
         // A single transition, which will be returned by the top state
         let mut pending_transition = Transition::None;
+        // Depth of the current state (I.E. how many states are above it)
+        let mut depth = 0;
 
         for state in self.states.iter_mut() {
-            pending_transition = state.on_update(ctx)?;
+            pending_transition = state.on_update(ctx, depth)?;
+            depth += 1;
         }
 
         self.apply_pending_transition(pending_transition);
