@@ -11,9 +11,9 @@ use winit_input_helper::WinitInputHelper;
 const WINDOW_TITLE: &str = concat!(env!("CARGO_PKG_NAME"), " v", env!("CARGO_PKG_VERSION"));
 
 pub struct GameContext {
-    win: Window,
-    input: WinitInputHelper,
-    speaker: Tts,
+    pub win: Window,
+    pub input: WinitInputHelper,
+    pub speaker: Tts,
 }
 
 impl GameContext {
