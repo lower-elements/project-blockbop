@@ -1,5 +1,6 @@
 mod context;
 mod menu;
+mod sound;
 mod state_manager;
 
 use winit::event_loop::EventLoop;

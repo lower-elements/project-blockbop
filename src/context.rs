@@ -8,12 +8,15 @@ use winit::{
 };
 use winit_input_helper::WinitInputHelper;
 
+use crate::sound::SoundManager;
+
 const WINDOW_TITLE: &str = concat!(env!("CARGO_PKG_NAME"), " v", env!("CARGO_PKG_VERSION"));
 
 pub struct GameContext {
     pub win: Window,
     pub input: WinitInputHelper,
     pub speaker: Tts,
+    pub sound: SoundManager,
 }
 
 impl GameContext {
@@ -28,6 +31,7 @@ impl GameContext {
             win,
             input: WinitInputHelper::new(),
             speaker: Tts::default().context("Could not initialize TTS engine")?,
+            sound: SoundManager::new()?,
         })
     }
 
