@@ -1,0 +1,13 @@
+[package]
+name = "blockbop"
+version = "0.1.0"
+authors = ["Michael Connor Buchan <mikey@blindcomputing.org>"]
+description = "A MineCraft inspired audio game"
+license = "gpl-3" # Not gpl-3-or-later
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.69"
+tts = { version = "0.25.0", features = ["tolk"] }
+winit = "0.27.0"
+winit_input_helper = "0.13.0"
