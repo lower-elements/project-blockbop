@@ -9,5 +9,5 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.69"
 tts = { version = "0.25.0", features = ["tolk"] }
-winit = "0.27.0"
-winit_input_helper = "0.13.0"
+winit = "0.28.1"
+winit_input_helper = "0.14.0"
