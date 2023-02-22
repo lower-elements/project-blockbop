@@ -5,6 +5,16 @@ pub trait State<Ctx> {
     fn on_update(&mut self, _ctx: &mut Ctx, _depth: usize) -> anyhow::Result<Transition<Ctx>> {
         Ok(Transition::None)
     }
+
+    // Called just before the `State` is first pushed to the state stack
+    fn on_push(&mut self, _ctx: &mut Ctx) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    // Called just after the `State` is popped from the state stack
+    fn on_pop(&mut self, _ctx: &mut Ctx) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 /// A state transition, returned by [`State::on_update`]
@@ -38,18 +48,23 @@ impl<Ctx> StateManager<Ctx> {
 
     /// Push the specified state onto the state stack.
     #[inline]
-    pub fn push_state(&mut self, state: Box<dyn State<Ctx>>) {
+    pub fn push_state(
+        &mut self,
+        mut state: Box<dyn State<Ctx>>,
+        ctx: &mut Ctx,
+    ) -> anyhow::Result<()> {
+        state.on_push(ctx)?;
         self.states.push(state);
+        Ok(())
     }
 
     /// Pop the specified number of states from the state stack.
-    pub fn pop_states(&mut self, num_states: usize) {
-        let new_len = self
-            .states
-            .len()
-            .checked_sub(num_states)
-            .expect("Tried to remove too many states");
-        self.states.truncate(new_len);
+    pub fn pop_states(&mut self, num_states: usize, ctx: &mut Ctx) -> anyhow::Result<()> {
+        for _ in 0..num_states {
+            let mut state = self.states.pop().expect("Tried to pop too many states");
+            state.on_pop(ctx)?;
+        }
+        Ok(())
     }
 
     /// Update the [`State`]s in the state stack, modifying the stack if necessary.
@@ -64,19 +79,22 @@ impl<Ctx> StateManager<Ctx> {
             depth += 1;
         }
 
-        self.apply_pending_transition(pending_transition);
-        Ok(())
+        self.apply_pending_transition(pending_transition, ctx)
     }
 
     /// Internal function to perform a [`Transition`] on a `StateManager`.
-    fn apply_pending_transition(&mut self, transition: Transition<Ctx>) {
+    fn apply_pending_transition(
+        &mut self,
+        transition: Transition<Ctx>,
+        ctx: &mut Ctx,
+    ) -> anyhow::Result<()> {
         match transition {
-            Transition::None => {}
-            Transition::Push(state) => self.push_state(state),
-            Transition::Pop(num_states) => self.pop_states(num_states),
+            Transition::None => Ok(()),
+            Transition::Push(state) => self.push_state(state, ctx),
+            Transition::Pop(num_states) => self.pop_states(num_states, ctx),
             Transition::Replace(num_states, state) => {
-                self.pop_states(num_states);
-                self.push_state(state);
+                self.pop_states(num_states, ctx)?;
+                self.push_state(state, ctx)
             }
         }
     }
