@@ -5,10 +5,14 @@ use crate::{
     state_manager::{State, Transition},
 };
 
+type MenuCallback =
+    Box<dyn Fn(&mut GameContext, String) -> anyhow::Result<Transition<GameContext>>>;
+
 pub struct Menu {
     title: String,
     items: Vec<String>,
     selected: Option<usize>,
+    callback: Option<MenuCallback>,
 }
 
 impl Menu {
@@ -21,9 +25,14 @@ impl Menu {
             title,
             items: i.into_iter().map(Into::into).collect(),
             selected: None,
+            callback: None,
         }
     }
 
+    pub fn set_callback(mut self, callback: MenuCallback) -> Self {
+        self.callback = Some(callback);
+        self
+    }
     fn next_item(&mut self, ctx: &mut GameContext) -> anyhow::Result<()> {
         let selected = if let Some(idx) = self.selected {
             (idx + 1) % self.items.len()
@@ -62,8 +71,19 @@ impl Menu {
         Ok(())
     }
 
-    fn activate_item(&mut self, _ctx: &mut GameContext) -> anyhow::Result<()> {
-        todo!("Activating menu items")
+    fn activate_item(&mut self, ctx: &mut GameContext) -> anyhow::Result<Transition<GameContext>> {
+        // Returns transition to be able to make it so some items when clicked can pop the state or add new items without needing to go insane about things.
+        // It also means that some items could be clicked and just print a message or do something, But not destroy the menu entirely.
+        if let Some(idx) = self.selected {
+            if let Some(cb) = &self.callback {
+                let txt = self.items[idx].clone();
+                cb(ctx, txt)
+            } else {
+                Ok(Transition::None)
+            }
+        } else {
+            Ok(Transition::None)
+        }
     }
 }
 
@@ -103,7 +123,7 @@ impl State<GameContext> for Menu {
             self.previous_item(ctx)?;
         }
         if ctx.input.key_pressed(VirtualKeyCode::Return) {
-            self.activate_item(ctx)?;
+            return self.activate_item(ctx);
         }
 
         Ok(Transition::None)
