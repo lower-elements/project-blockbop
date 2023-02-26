@@ -6,6 +6,9 @@ description = "A MineCraft inspired audio game"
 license = "gpl-3" # Not gpl-3-or-later
 edition = "2021"
 
+[profile.release]
+lto = "thin"
+
 [dependencies]
 alto = "3.0.4"
 anyhow = "1.0.69"
