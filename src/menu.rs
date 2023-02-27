@@ -7,15 +7,15 @@ use crate::{
     state_manager::{State, Transition},
 };
 
-pub type MenuItemCallback =
-    fn(&mut MenuItem, &mut GameContext) -> anyhow::Result<Transition<GameContext>>;
+pub type MenuItemCallback<MCtx> =
+    fn(&mut MenuItem<MCtx>, &mut GameContext, &mut MCtx) -> anyhow::Result<Transition<GameContext>>;
 
-pub struct MenuItem {
+pub struct MenuItem<MCtx> {
     text: String,
-    activate_callback: Option<MenuItemCallback>,
+    activate_callback: Option<MenuItemCallback<MCtx>>,
 }
 
-impl MenuItem {
+impl<MCtx> MenuItem<MCtx> {
     pub fn new<S: ToString>(text: S) -> Self {
         Self {
             text: text.to_string(),
@@ -23,7 +23,7 @@ impl MenuItem {
         }
     }
 
-    pub fn on_activate(mut self, activate_callback: MenuItemCallback) -> Self {
+    pub fn on_activate(mut self, activate_callback: MenuItemCallback<MCtx>) -> Self {
         self.activate_callback = Some(activate_callback);
         self
     }
@@ -39,40 +39,44 @@ impl MenuItem {
     }
 }
 
-pub struct MenuBuilder {
+pub struct MenuBuilder<MCtx> {
     title: String,
-    items: Vec<MenuItem>,
+    items: Vec<MenuItem<MCtx>>,
+    menu_context: MCtx,
 }
 
-impl MenuBuilder {
-    pub fn new<S: ToString>(title: S) -> Self {
+impl<MCtx> MenuBuilder<MCtx> {
+    pub fn new<S: ToString>(title: S, menu_context: MCtx) -> Self {
         Self {
             title: title.to_string(),
             items: Vec::new(),
+            menu_context,
         }
     }
 
-    pub fn build(self) -> Menu {
+    pub fn build(self) -> Menu<MCtx> {
         Menu {
             title: self.title,
             items: self.items,
+            menu_context: self.menu_context,
             selected: None,
         }
     }
 
-    pub fn item(mut self, item: MenuItem) -> Self {
+    pub fn item(mut self, item: MenuItem<MCtx>) -> Self {
         self.items.push(item);
         self
     }
 }
 
-pub struct Menu {
+pub struct Menu<MCtx> {
     title: String,
-    items: Vec<MenuItem>,
+    items: Vec<MenuItem<MCtx>>,
+    menu_context: MCtx,
     selected: Option<usize>,
 }
 
-impl Menu {
+impl<MCtx> Menu<MCtx> {
     fn next_item(&mut self, ctx: &mut GameContext) -> anyhow::Result<()> {
         let selected = if let Some(idx) = self.selected {
             (idx + 1) % self.items.len()
@@ -98,11 +102,11 @@ impl Menu {
     fn activate_item(&mut self, ctx: &mut GameContext) -> anyhow::Result<Transition<GameContext>> {
         let Some(selected) = self.selected else { return Ok(Transition::None); };
         let Some(cb) = self.items[selected].activate_callback else { return Ok(Transition::None); };
-        cb(&mut self.items[selected], ctx)
+        cb(&mut self.items[selected], ctx, &mut self.menu_context)
     }
 }
 
-impl State<GameContext> for Menu {
+impl<MCtx> State<GameContext> for Menu<MCtx> {
     fn on_push(&mut self, ctx: &mut GameContext) -> anyhow::Result<()> {
         ctx.speaker.speak(
             format!(
