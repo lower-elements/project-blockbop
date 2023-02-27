@@ -1,3 +1,5 @@
+use std::string::ToString;
+
 use winit::event::VirtualKeyCode;
 
 use crate::{
@@ -5,40 +7,79 @@ use crate::{
     state_manager::{State, Transition},
 };
 
-pub struct Menu {
-    title: String,
-    items: Vec<String>,
-    selected: Option<usize>,
+pub type MenuItemCallback =
+    fn(&mut MenuItem, &mut GameContext) -> anyhow::Result<Transition<GameContext>>;
+
+pub struct MenuItem {
+    text: String,
+    activate_callback: Option<MenuItemCallback>,
 }
 
-impl Menu {
-    pub fn new<I, S>(title: String, i: I) -> Self
-    where
-        I: IntoIterator<Item = S>,
-        S: Into<String>,
-    {
+impl MenuItem {
+    pub fn new<S: ToString>(text: S) -> Self {
         Self {
-            title,
-            items: i.into_iter().map(Into::into).collect(),
+            text: text.to_string(),
+            activate_callback: None,
+        }
+    }
+
+    pub fn on_activate(mut self, activate_callback: MenuItemCallback) -> Self {
+        self.activate_callback = Some(activate_callback);
+        self
+    }
+
+    pub fn speak(
+        &self,
+        ctx: &mut GameContext,
+        pos: usize,
+        len: usize,
+    ) -> Result<Option<tts::UtteranceId>, tts::Error> {
+        ctx.speaker
+            .speak(format!("{}. {} of {}", self.text, pos, len), true)
+    }
+}
+
+pub struct MenuBuilder {
+    title: String,
+    items: Vec<MenuItem>,
+}
+
+impl MenuBuilder {
+    pub fn new<S: ToString>(title: S) -> Self {
+        Self {
+            title: title.to_string(),
+            items: Vec::new(),
+        }
+    }
+
+    pub fn build(self) -> Menu {
+        Menu {
+            title: self.title,
+            items: self.items,
             selected: None,
         }
     }
 
+    pub fn item(mut self, item: MenuItem) -> Self {
+        self.items.push(item);
+        self
+    }
+}
+
+pub struct Menu {
+    title: String,
+    items: Vec<MenuItem>,
+    selected: Option<usize>,
+}
+
+impl Menu {
     fn next_item(&mut self, ctx: &mut GameContext) -> anyhow::Result<()> {
         let selected = if let Some(idx) = self.selected {
             (idx + 1) % self.items.len()
         } else {
             0
         };
-        ctx.speaker.speak(
-            format!(
-                "{}. {} of {}",
-                self.items[selected],
-                selected + 1,
-                self.items.len()
-            ),
-            true,
-        )?;
+        self.items[selected].speak(ctx, selected + 1, self.items.len())?;
         self.selected = Some(selected);
         Ok(())
     }
@@ -49,21 +90,15 @@ impl Menu {
         } else {
             self.items.len() - 1
         };
-        ctx.speaker.speak(
-            format!(
-                "{}. {} of {}",
-                self.items[selected],
-                selected + 1,
-                self.items.len()
-            ),
-            true,
-        )?;
+        self.items[selected].speak(ctx, selected + 1, self.items.len())?;
         self.selected = Some(selected);
         Ok(())
     }
 
-    fn activate_item(&mut self, _ctx: &mut GameContext) -> anyhow::Result<()> {
-        todo!("Activating menu items")
+    fn activate_item(&mut self, ctx: &mut GameContext) -> anyhow::Result<Transition<GameContext>> {
+        let Some(selected) = self.selected else { return Ok(Transition::None); };
+        let Some(cb) = self.items[selected].activate_callback else { return Ok(Transition::None); };
+        cb(&mut self.items[selected], ctx)
     }
 }
 
@@ -103,7 +138,7 @@ impl State<GameContext> for Menu {
             self.previous_item(ctx)?;
         }
         if ctx.input.key_pressed(VirtualKeyCode::Return) {
-            self.activate_item(ctx)?;
+            return self.activate_item(ctx);
         }
 
         Ok(Transition::None)
